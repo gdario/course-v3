@@ -43,21 +43,6 @@ def camel2snake(name):
     s1 = re.sub(_camel_re1, r'\1_\2', name)
     return re.sub(_camel_re2, r'\1_\2', s1).lower()
 
-
-class Callback():
-    _order = 0
-
-    def set_runner(self, run):
-        self.run = run
-
-    def __getattr__(self, k):
-        return getattr(self.run, k)
-
-    @property
-    def name(self):
-        name = re.sub(r'Callback$', '', self.__class__.__name__)
-        return camel2snake(name or 'callback')
-
 class TrainEvalCallback(Callback):
     def begin_fit(self):
         self.run.n_epochs = 0.
@@ -100,7 +85,7 @@ class Runner():
             setattr(self, cb.name, cb)
             cbs.append(cb)
         self.stop = False
-        self.cbs = [TrainEvalCallback()]+cbs
+        self.cbs = [TrainEvalCallback()] + cbs
 
     @property
     def opt(self):
@@ -208,8 +193,8 @@ class AvgStats():
 
 class AvgStatsCallback(Callback):
     def __init__(self, metrics):
-        self.train_stats, self.valid_stats = AvgStats(
-            metrics, True), AvgStats(metrics, False)
+        self.train_stats = AvgStats(metrics, True)
+        self.valid_stats = AvgStats(metrics, False)
 
     def begin_epoch(self):
         self.train_stats.reset()
