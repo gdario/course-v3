@@ -118,7 +118,8 @@ class Runner():
         return self.learn.data
 
     def one_batch(self, xb, yb):
-        self.xb, self.yb = xb, yb
+        self.xb = xb
+        self.yb = yb
         if self('begin_batch'):
             return
         self.pred = self.model(self.xb)
@@ -145,8 +146,8 @@ class Runner():
         self.stop = False
 
     def fit(self, epochs, learn):
-        self.epochs, self.learn = epochs, learn
-
+        self.epochs = epochs
+        self.learn = learn
         try:
             for cb in self.cbs:
                 cb.set_runner(self)
@@ -156,13 +157,11 @@ class Runner():
                 self.epoch = epoch
                 if not self('begin_epoch'):
                     self.all_batches(self.data.train_dl)
-
                 with torch.no_grad():
                     if not self('begin_validate'):
                         self.all_batches(self.data.valid_dl)
                 if self('after_epoch'):
                     break
-
         finally:
             self('after_fit')
             self.learn = None
