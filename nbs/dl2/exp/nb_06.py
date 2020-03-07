@@ -8,7 +8,7 @@ from exp.nb_05b import *
 torch.set_num_threads(2)
 
 def normalize_to(train, valid):
-    m,s = train.mean(),train.std()
+    m, s = train.mean(), train.std()
     return normalize(train, m, s), normalize(valid, m, s)
 
 class Lambda(nn.Module):
@@ -16,21 +16,34 @@ class Lambda(nn.Module):
         super().__init__()
         self.func = func
 
-    def forward(self, x): return self.func(x)
+    def forward(self, x):
+        return self.func(x)
 
-def flatten(x):      return x.view(x.shape[0], -1)
+
+def flatten(x):
+    return x.view(x.shape[0], -1)
 
 class CudaCallback(Callback):
-    def begin_fit(self): self.model.cuda()
-    def begin_batch(self): self.run.xb,self.run.yb = self.xb.cuda(),self.yb.cuda()
+    def begin_fit(self):
+        self.model.cuda()
+
+    def begin_batch(self):
+        self.run.xb = self.xb.cuda()
+        self.run.yb = self.yb.cuda()
 
 class BatchTransformXCallback(Callback):
-    _order=2
-    def __init__(self, tfm): self.tfm = tfm
-    def begin_batch(self): self.run.xb = self.tfm(self.xb)
+    _order = 2
+
+    def __init__(self, tfm):
+        self.tfm = tfm
+
+    def begin_batch(self):
+        self.run.xb = self.tfm(self.xb)
+
 
 def view_tfm(*size):
-    def _inner(x): return x.view(*((-1,)+size))
+    def _inner(x):
+        return x.view(*((-1,) + size))
     return _inner
 
 def get_runner(model, data, lr=0.6, cbs=None, opt_func=None, loss_func = F.cross_entropy):
@@ -49,19 +62,17 @@ class Hook():
 def append_stats(hook, mod, inp, outp):
     if not hasattr(hook,'stats'): hook.stats = ([],[])
     means,stds = hook.stats
-    if mod.training:
-        means.append(outp.data.mean())
-        stds .append(outp.data.std())
+    means.append(outp.data.mean())
+    stds .append(outp.data.std())
 
 class ListContainer():
     def __init__(self, items): self.items = listify(items)
     def __getitem__(self, idx):
-        try: return self.items[idx]
-        except TypeError:
-            if isinstance(idx[0],bool):
-                assert len(idx)==len(self) # bool mask
-                return [o for m,o in zip(idx,self.items) if m]
-            return [self.items[i] for i in idx]
+        if isinstance(idx, (int,slice)): return self.items[idx]
+        if isinstance(idx[0],bool):
+            assert len(idx)==len(self) # bool mask
+            return [o for m,o in zip(idx,self.items) if m]
+        return [self.items[i] for i in idx]
     def __len__(self): return len(self.items)
     def __iter__(self): return iter(self.items)
     def __setitem__(self, i, o): self.items[i] = o

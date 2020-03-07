@@ -37,7 +37,7 @@ def annealer(f):
 
 @annealer
 def sched_lin(start, end, pos):
-    return start + pos*(end - start)
+    return start + pos * (end - start)
 
 @annealer
 def sched_cos(start, end, pos):
@@ -51,7 +51,7 @@ def sched_no(start, end, pos):
 
 @annealer
 def sched_exp(start, end, pos):
-    return start * (end/start) ** pos
+    return start * (end / start) ** pos
 
 
 def cos_1cycle_anneal(start, high, end):
@@ -69,6 +69,6 @@ def combine_scheds(pcts, scheds):
 
     def _inner(pos):
         idx = (pos >= pcts).nonzero().max()
-        actual_pos = (pos-pcts[idx]) / (pcts[idx + 1] - pcts[idx])
+        actual_pos = (pos - pcts[idx]) / (pcts[idx + 1] - pcts[idx])
         return scheds[idx](actual_pos)
     return _inner
