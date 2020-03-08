@@ -46,77 +46,116 @@ def view_tfm(*size):
         return x.view(*((-1,) + size))
     return _inner
 
-def get_runner(model, data, lr=0.6, cbs=None, opt_func=None, loss_func = F.cross_entropy):
-    if opt_func is None: opt_func = optim.SGD
+def get_runner(model, data, lr=0.6, cbs=None, opt_func=None,
+               loss_func=F.cross_entropy):
+    if opt_func is None:
+        opt_func = optim.SGD
     opt = opt_func(model.parameters(), lr=lr)
     learn = Learner(model, opt, loss_func, data)
     return learn, Runner(cb_funcs=listify(cbs))
 
-def children(m): return list(m.children())
+def children(m):
+    return list(m.children())
+
 
 class Hook():
-    def __init__(self, m, f): self.hook = m.register_forward_hook(partial(f, self))
-    def remove(self): self.hook.remove()
-    def __del__(self): self.remove()
+    def __init__(self, m, f):  # `f` is the function to be registered
+        self.hook = m.register_forward_hook(partial(f, self))
+
+    def remove(self):
+        self.hook.remove()
+
+    def __del__(self):
+        self.remove()
 
 def append_stats(hook, mod, inp, outp):
-    if not hasattr(hook,'stats'): hook.stats = ([],[])
-    means,stds = hook.stats
+    if not hasattr(hook, 'stats'):
+        hook.stats = ([], [])
+    means, stds = hook.stats
     means.append(outp.data.mean())
-    stds .append(outp.data.std())
+    stds.append(outp.data.std())
 
 class ListContainer():
-    def __init__(self, items): self.items = listify(items)
+    def __init__(self, items):
+        self.items = listify(items)
+
     def __getitem__(self, idx):
-        if isinstance(idx, (int,slice)): return self.items[idx]
-        if isinstance(idx[0],bool):
-            assert len(idx)==len(self) # bool mask
-            return [o for m,o in zip(idx,self.items) if m]
+        if isinstance(idx, (int, slice)):
+            return self.items[idx]
+        if isinstance(idx[0], bool):
+            assert len(idx) == len(self)  # bool mask
+            return [o for m, o in zip(idx, self.items) if m]
         return [self.items[i] for i in idx]
-    def __len__(self): return len(self.items)
-    def __iter__(self): return iter(self.items)
-    def __setitem__(self, i, o): self.items[i] = o
-    def __delitem__(self, i): del(self.items[i])
+
+    def __len__(self):
+        return len(self.items)
+
+    def __iter__(self):
+        return iter(self.items)
+
+    def __setitem__(self, i, o):
+        self.items[i] = o
+
+    def __delitem__(self, i):
+        del(self.items[i])
+
     def __repr__(self):
         res = f'{self.__class__.__name__} ({len(self)} items)\n{self.items[:10]}'
-        if len(self)>10: res = res[:-1]+ '...]'
+        if len(self) > 10:
+            res = res[:-1] + '...]'
         return res
 
 from torch.nn import init
 
+
 class Hooks(ListContainer):
-    def __init__(self, ms, f): super().__init__([Hook(m, f) for m in ms])
-    def __enter__(self, *args): return self
-    def __exit__ (self, *args): self.remove()
-    def __del__(self): self.remove()
+    def __init__(self, ms, f):
+        super().__init__([Hook(m, f) for m in ms])
+
+    def __enter__(self, *args):
+        return self
+
+    def __exit__(self, *args):
+        self.remove()
+
+    def __del__(self):
+        self.remove()
 
     def __delitem__(self, i):
         self[i].remove()
         super().__delitem__(i)
 
     def remove(self):
-        for h in self: h.remove()
+        for h in self:
+            h.remove()
 
 def get_cnn_layers(data, nfs, layer, **kwargs):
     nfs = [1] + nfs
-    return [layer(nfs[i], nfs[i+1], 5 if i==0 else 3, **kwargs)
+    return [layer(nfs[i], nfs[i+1], 5 if i == 0 else 3, **kwargs)
             for i in range(len(nfs)-1)] + [
         nn.AdaptiveAvgPool2d(1), Lambda(flatten), nn.Linear(nfs[-1], data.c)]
+
 
 def conv_layer(ni, nf, ks=3, stride=2, **kwargs):
     return nn.Sequential(
         nn.Conv2d(ni, nf, ks, padding=ks//2, stride=stride), GeneralRelu(**kwargs))
 
+
 class GeneralRelu(nn.Module):
     def __init__(self, leak=None, sub=None, maxv=None):
         super().__init__()
-        self.leak,self.sub,self.maxv = leak,sub,maxv
+        self.leak = leak
+        self.sub = sub
+        self.maxv = maxv
 
     def forward(self, x):
-        x = F.leaky_relu(x,self.leak) if self.leak is not None else F.relu(x)
-        if self.sub is not None: x.sub_(self.sub)
-        if self.maxv is not None: x.clamp_max_(self.maxv)
+        x = F.leaky_relu(x, self.leak) if self.leak is not None else F.relu(x)
+        if self.sub is not None:
+            x.sub_(self.sub)
+        if self.maxv is not None:
+            x.clamp_max_(self.maxv)
         return x
+
 
 def init_cnn(m, uniform=False):
     f = init.kaiming_uniform_ if uniform else init.kaiming_normal_
@@ -124,6 +163,7 @@ def init_cnn(m, uniform=False):
         if isinstance(l, nn.Sequential):
             f(l[0].weight, a=0.1)
             l[0].bias.data.zero_()
+
 
 def get_cnn_model(data, nfs, layer, **kwargs):
     return nn.Sequential(*get_cnn_layers(data, nfs, layer, **kwargs))
