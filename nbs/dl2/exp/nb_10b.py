@@ -54,7 +54,7 @@ class MixUp(Callback):
         self.λ = unsqueeze(λ.max(1)[0], (1, 2, 3))
         shuffle = torch.randperm(self.yb.size(0)).to(self.xb.device)
         xb1, self.yb1 = self.xb[shuffle], self.yb[shuffle]
-        self.run.xb = lin_comb(self.xb, xb1, self.λ)
+        self.run.xb = lin_comb(self.xb, xb1, self.λ)  # Previously ewma
 
     def after_fit(self):
         self.run.loss_func = self.old_loss_func
@@ -65,7 +65,7 @@ class MixUp(Callback):
         with NoneReduce(self.old_loss_func) as loss_func:
             loss1 = loss_func(pred, yb)
             loss2 = loss_func(pred, self.yb1)
-        loss = lin_comb(loss1, loss2, self.λ)
+        loss = lin_comb(loss1, loss2, self.λ)  # Previously ewma
         return reduce_loss(loss, getattr(self.old_loss_func, 'reduction', 'mean'))
 
 class LabelSmoothingCrossEntropy(nn.Module):
